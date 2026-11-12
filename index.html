@@ -16,6 +16,7 @@
             color: #1a3d63;
             text-align: center;
             padding: 20px;
+            box-sizing: border-box;
         }
         .card {
             background: white;
@@ -26,7 +27,7 @@
             width: 100%;
         }
         h2 { margin-top: 0; color: #1a3d63; }
-        p { color: #555; line-height: 1.5; }
+        p { color: #555; line-height: 1.5; margin-bottom: 0; }
     </style>
 </head>
 <body>
@@ -38,6 +39,7 @@
     <script>
         // Set your time windows in IST (+05:30)
         // Format: YYYY-MM-DDTHH:MM:SS+05:30 (24-hour clock)
+        // You can add unlimited entries below separated by commas
         const schedule = [
             {
                 name: "Link 1",
@@ -47,31 +49,48 @@
             },
             {
                 name: "Link 2",
-                start: new Date("2026-11-12T17:51:01+05:30"),
+                start: new Date("2026-11-12T17:50:01+05:30"),
                 end:   new Date("2026-11-12T22:00:00+05:30"),
                 url:   "https://docs.google.com/forms/d/e/1FAIpQLSfHPVXIzBrQRkkhrCr4gBOrgksIgV72Ih42_p4qTeSCR5bDtQ/viewform?usp=publish-editor"
             }
         ];
 
-        const now = new Date();
-        let targetUrl = null;
+        async function routeByServerTime() {
+            let now;
+            try {
+                // Fetch server header with cache-buster (?t=...) for tamper-proof IST time & high-traffic support
+                const response = await fetch(window.location.pathname + "?t=" + Date.now(), {
+                    method: "HEAD",
+                    cache: "no-store"
+                });
+                const serverDateStr = response.headers.get("Date");
+                now = serverDateStr ? new Date(serverDateStr) : new Date();
+            } catch (error) {
+                // Fallback if testing locally via file:// or if connection drops
+                now = new Date();
+            }
 
-        for (const slot of schedule) {
-            if (now >= slot.start && now <= slot.end) {
-                targetUrl = slot.url;
-                break;
+            let targetUrl = null;
+
+            for (const slot of schedule) {
+                if (now >= slot.start && now <= slot.end) {
+                    targetUrl = slot.url;
+                    break;
+                }
+            }
+
+            if (targetUrl) {
+                // Instantly forward to the active Google Form
+                window.location.replace(targetUrl);
+            } else {
+                // If scanned before start time or after end time, show closed message
+                document.getElementById("title").innerText = "Link Currently Inactive";
+                document.getElementById("message").innerText = 
+                    "This form is only open during scheduled hours. Please scan again during the active session time.";
             }
         }
 
-        if (targetUrl) {
-            // Instantly forward to the active Google Form
-            window.location.replace(targetUrl);
-        } else {
-            // If scanned before start time or after end time, show closed message
-            document.getElementById("title").innerText = "Link Currently Inactive";
-            document.getElementById("message").innerText = 
-                "This form is only open during scheduled hours. Please scan again during the active session time.";
-        }
+        routeByServerTime();
     </script>
 </body>
 </html>
